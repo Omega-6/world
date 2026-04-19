@@ -52,6 +52,49 @@
     min-width: 280px;
     cursor: pointer;
   }
+  .combo { position: relative; min-width: 320px; }
+  .combo input {
+    width: 100%;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--panel2);
+    padding: 8px 32px 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .combo input:focus { outline: none; border-color: var(--accent); }
+  .combo .caret {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  .combo-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--panel2);
+    border-radius: 6px;
+    z-index: 20;
+    display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .combo-list.open { display: block; }
+  .combo-list .item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(51,65,85,0.4);
+  }
+  .combo-list .item:last-child { border-bottom: none; }
+  .combo-list .item:hover,
+  .combo-list .item.active { background: rgba(59,130,246,0.15); }
+  .combo-list .empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
   main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
   h2 { margin: 0 0 16px; font-size: 22px; }
   .metrics {
@@ -152,7 +195,12 @@
   <p>Event: RE-V5RC-26-4025 • Season: V5RC Push Back (2025–2026) • <span id="team-count">—</span> teams</p>
   <div class="picker">
     <label for="team-picker">Team:</label>
-    <select id="team-picker"></select>
+    <div class="combo">
+      <input id="team-picker" type="search" autocomplete="off"
+             placeholder="Search team number or name…" spellcheck="false" />
+      <span class="caret">▼</span>
+      <div id="team-picker-list" class="combo-list" role="listbox"></div>
+    </div>
   </div>
 </header>
 
@@ -697,16 +745,106 @@ function selectTeam(num) {
   if (history.replaceState) history.replaceState(null, "", `#${encodeURIComponent(num)}`);
 }
 
-function buildPicker() {
-  const picker = document.getElementById("team-picker");
-  DATA.slice().sort((a, b) => naturalCmp(a["Team Number"], b["Team Number"]))
-    .forEach(d => {
-      const opt = document.createElement("option");
-      opt.value = d["Team Number"];
-      opt.textContent = `${d["Team Number"]}  |  ${d["Team Name"]}`;
-      picker.appendChild(opt);
+const PICKER_STATE = { teams: [], activeIndex: -1, selected: null };
+
+function labelFor(d) { return `${d["Team Number"]}  |  ${d["Team Name"]}`; }
+
+function renderPickerList(filter) {
+  const list = document.getElementById("team-picker-list");
+  const q = (filter || "").trim().toLowerCase();
+  const matches = PICKER_STATE.teams.filter(d => {
+    if (!q) return true;
+    return d["Team Number"].toLowerCase().includes(q)
+        || (d["Team Name"] || "").toLowerCase().includes(q);
+  });
+  if (!matches.length) {
+    list.innerHTML = `<div class="empty">No teams match "${q}"</div>`;
+    PICKER_STATE.activeIndex = -1;
+    return;
+  }
+  PICKER_STATE.activeIndex = Math.min(PICKER_STATE.activeIndex, matches.length - 1);
+  if (PICKER_STATE.activeIndex < 0) PICKER_STATE.activeIndex = 0;
+  list.innerHTML = matches.map((d, i) => {
+    const active = i === PICKER_STATE.activeIndex ? " active" : "";
+    return `<div class="item${active}" data-team="${d["Team Number"]}" role="option">${labelFor(d)}</div>`;
+  }).join("");
+  list.querySelectorAll(".item").forEach((el, i) => {
+    el.addEventListener("mousedown", (e) => { // mousedown so input blur doesn't fire first
+      e.preventDefault();
+      choosePickerTeam(el.dataset.team);
     });
-  picker.addEventListener("change", e => selectTeam(e.target.value));
+    el.addEventListener("mouseenter", () => {
+      PICKER_STATE.activeIndex = i;
+      list.querySelectorAll(".item.active").forEach(a => a.classList.remove("active"));
+      el.classList.add("active");
+    });
+  });
+  const active = list.querySelector(".item.active");
+  if (active) active.scrollIntoView({ block: "nearest" });
+}
+
+function openPicker(showAll) {
+  document.getElementById("team-picker-list").classList.add("open");
+  renderPickerList(showAll ? "" : document.getElementById("team-picker").value);
+}
+function closePicker() {
+  document.getElementById("team-picker-list").classList.remove("open");
+}
+
+function setPickerValue(teamNum) {
+  PICKER_STATE.selected = teamNum;
+  const d = PICKER_STATE.teams.find(x => x["Team Number"] === teamNum);
+  document.getElementById("team-picker").value = d ? labelFor(d) : teamNum;
+}
+
+function choosePickerTeam(teamNum) {
+  setPickerValue(teamNum);
+  closePicker();
+  selectTeam(teamNum);
+}
+
+function buildPicker() {
+  PICKER_STATE.teams = DATA.slice().sort((a, b) => naturalCmp(a["Team Number"], b["Team Number"]));
+
+  const input = document.getElementById("team-picker");
+  const list = document.getElementById("team-picker-list");
+
+  input.addEventListener("focus", () => openPicker(true));
+  input.addEventListener("click", () => openPicker(true));
+  input.addEventListener("input", () => {
+    PICKER_STATE.activeIndex = 0;
+    openPicker(false);
+  });
+  input.addEventListener("blur", () => {
+    // restore the full label if they typed something partial
+    setTimeout(() => {
+      if (PICKER_STATE.selected) setPickerValue(PICKER_STATE.selected);
+      closePicker();
+    }, 150);
+  });
+  input.addEventListener("keydown", (e) => {
+    const items = list.querySelectorAll(".item");
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!list.classList.contains("open")) openPicker(true);
+      if (items.length) {
+        PICKER_STATE.activeIndex = (PICKER_STATE.activeIndex + 1) % items.length;
+        renderPickerList(input.value);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (items.length) {
+        PICKER_STATE.activeIndex = (PICKER_STATE.activeIndex - 1 + items.length) % items.length;
+        renderPickerList(input.value);
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const active = list.querySelector(".item.active");
+      if (active) choosePickerTeam(active.dataset.team);
+    } else if (e.key === "Escape") {
+      input.blur();
+    }
+  });
 }
 
 const COLUMN_ORDER_PRIORITY = [
@@ -771,7 +909,7 @@ function buildTable() {
       td.addEventListener("click", () => {
         const num = td.dataset.team;
         if (!num) return;
-        document.getElementById("team-picker").value = num;
+        setPickerValue(num);
         selectTeam(num);
         window.scrollTo({ top: 0, behavior: "smooth" });
       });
@@ -816,7 +954,7 @@ Promise.all([
     const initial = DATA.find(d => d["Team Number"] === hash)
       ? hash
       : DATA.slice().sort((a, b) => naturalCmp(a["Team Number"], b["Team Number"]))[0]["Team Number"];
-    document.getElementById("team-picker").value = initial;
+    setPickerValue(initial);
     selectTeam(initial);
   })
   .catch(err => {

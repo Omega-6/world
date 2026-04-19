@@ -231,13 +231,19 @@ function isSignatureEvent(name) {
 // R16/QF: made playoffs, exited before semis.
 // SF/F/Champ: deeper runs, each tier ~doubles the one below.
 const DEPTH_POINTS = { Qual: 0, R16: 1, QF: 2, SF: 4, F: 7, Champ: 10 };
-const SIG_MULTIPLIER = 2;          // Signature Events
-const CHINA_EVENT_MULTIPLIER = 1.5; // events hosted in China (stacks with Sig)
+const SIG_MULTIPLIER = 2;            // Signature Events
+const CHINA_EVENT_MULTIPLIER = 1.5;  // events hosted in China (stacks)
+const BLENDED_MULTIPLIER = 0.85;     // MS+HS blended events are easier for HS teams
+
+function isBlendedEvent(name) {
+  return /\bblended\b/i.test(name || "");
+}
 
 function eventMultiplier(h) {
   let m = 1;
   if (isSignatureEvent(h["Event Name"])) m *= SIG_MULTIPLIER;
   if ((h["Event Country"] || "") === "China") m *= CHINA_EVENT_MULTIPLIER;
+  if (isBlendedEvent(h["Event Name"])) m *= BLENDED_MULTIPLIER;
   return m;
 }
 

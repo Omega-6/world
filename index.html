@@ -98,6 +98,26 @@
   th:hover { color: var(--accent); }
   tr:hover td { background: rgba(59, 130, 246, 0.08); }
   .error { color: var(--red); padding: 32px; text-align: center; }
+  .awards-card {
+    background: var(--panel);
+    border: 1px solid var(--panel2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  .awards-card h3 { margin: 0 0 12px; font-size: 15px; color: var(--muted); font-weight: 500; }
+  .awards-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; }
+  .awards-list li {
+    padding: 10px 12px;
+    background: #0f172a;
+    border: 1px solid var(--panel2);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .awards-list .title { font-weight: 600; color: #fbbf24; }
+  .awards-list .event { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .awards-list .date { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .awards-empty { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -115,6 +135,16 @@
   <section id="team-view" style="display:none">
     <h2 id="team-header"></h2>
     <div class="metrics" id="metrics"></div>
+    <div class="awards-card">
+      <h3>Awards Won This Season — <span id="awards-count">0</span></h3>
+      <ul id="awards-list" class="awards-list"></ul>
+      <div id="awards-empty" class="awards-empty" style="display:none">No awards recorded this season.</div>
+    </div>
+    <div class="chart-card" style="margin-bottom: 16px;">
+      <h3>Season Progression — Winrate & Rank per Event</h3>
+      <canvas id="chart-progress"></canvas>
+      <div id="progress-empty" style="display:none; color:var(--muted); font-size:13px; padding: 12px 0;">No per-event history available for this team.</div>
+    </div>
     <div class="charts">
       <div class="chart-card">
         <h3>Match Outcomes (Season)</h3>
@@ -137,6 +167,8 @@
 
 <script>
 const CSV_URL = "Worlds2026_Research_Division_Stats.csv";
+const HISTORY_CSV_URL = "Worlds2026_Research_Division_History.csv";
+const AWARDS_CSV_URL = "Worlds2026_Research_Division_Awards.csv";
 const METRIC_ORDER = [
   ["Winrate %", "Winrate %"],
   ["Total Matches", "Total Matches"],
@@ -163,7 +195,9 @@ function naturalCmp(a, b) {
 }
 
 let DATA = [];
-let wltChart, divChart;
+let HISTORY = [];
+let AWARDS = [];
+let wltChart, divChart, progressChart;
 
 function fmt(v) {
   if (v === null || v === undefined || v === "") return "—";
@@ -180,7 +214,109 @@ function renderMetrics(row) {
   `).join("");
 }
 
+function shortEventName(s) {
+  const stop = [": VEX V5 Robotics Competition Push Back", ": VEX V5 Robotics", ": High School"];
+  let out = String(s || "");
+  for (const tok of stop) out = out.replace(tok, "");
+  return out.length > 45 ? out.slice(0, 42) + "…" : out;
+}
+
+function renderProgressChart(teamNum) {
+  const ctx = document.getElementById("chart-progress");
+  const empty = document.getElementById("progress-empty");
+  if (progressChart) progressChart.destroy();
+
+  const rows = HISTORY
+    .filter(h => h["Team Number"] === teamNum)
+    .sort((a, b) => String(a["Event Date"]).localeCompare(String(b["Event Date"])));
+
+  if (!rows.length) {
+    ctx.style.display = "none";
+    empty.style.display = "block";
+    return;
+  }
+  ctx.style.display = "block";
+  empty.style.display = "none";
+
+  const labels = rows.map(r => `${r["Event Date"]} — ${shortEventName(r["Event Name"])}`);
+  const winrates = rows.map(r => +r["Winrate %"]);
+  const ranks = rows.map(r => +r["Rank"]);
+
+  progressChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Winrate %",
+          data: winrates,
+          borderColor: "#22c55e",
+          backgroundColor: "rgba(34,197,94,0.15)",
+          tension: 0.25,
+          fill: true,
+          yAxisID: "y",
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        },
+        {
+          label: "Qual Rank (lower = better)",
+          data: ranks,
+          borderColor: "#f59e0b",
+          backgroundColor: "rgba(245,158,11,0.05)",
+          borderDash: [5, 4],
+          tension: 0.25,
+          fill: false,
+          yAxisID: "y1",
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: "#e2e8f0" } },
+        tooltip: {
+          callbacks: {
+            afterBody: (items) => {
+              const i = items[0].dataIndex;
+              const r = rows[i];
+              return [`W-L-T: ${r["Wins"]}-${r["Losses"]}-${r["Ties"]}  (${r["Matches"]} matches)`];
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          position: "left",
+          min: 0, max: 100,
+          title: { display: true, text: "Winrate %", color: "#22c55e" },
+          ticks: { color: "#94a3b8" },
+          grid: { color: "#334155" },
+        },
+        y1: {
+          position: "right",
+          reverse: true,
+          title: { display: true, text: "Rank", color: "#f59e0b" },
+          ticks: { color: "#94a3b8", stepSize: 1, precision: 0 },
+          grid: { display: false },
+          beginAtZero: false,
+        },
+        x: {
+          ticks: {
+            color: "#e2e8f0", font: { size: 10 },
+            maxRotation: 40, minRotation: 20, autoSkip: false,
+          },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+}
+
 function renderCharts(row) {
+  renderProgressChart(row["Team Number"]);
   // 1. W/L/T bar
   const ctx1 = document.getElementById("chart-wlt");
   if (wltChart) wltChart.destroy();
@@ -241,12 +377,35 @@ function median(arr) {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
+function renderAwards(teamNum) {
+  const rows = AWARDS
+    .filter(a => a["Team Number"] === teamNum)
+    .sort((a, b) => String(a["Event Date"]).localeCompare(String(b["Event Date"])));
+  const list = document.getElementById("awards-list");
+  const empty = document.getElementById("awards-empty");
+  document.getElementById("awards-count").textContent = rows.length;
+  if (!rows.length) {
+    list.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  list.innerHTML = rows.map(r => `
+    <li>
+      <div class="title">${r["Award"]}</div>
+      <div class="event">${r["Event Name"]}</div>
+      <div class="date">${r["Event Date"] || ""}</div>
+    </li>
+  `).join("");
+}
+
 function selectTeam(num) {
   const row = DATA.find(d => d["Team Number"] === num);
   if (!row) return;
   document.getElementById("team-view").style.display = "block";
   document.getElementById("team-header").textContent = `${row["Team Number"]} — ${row["Team Name"]}`;
   renderMetrics(row);
+  renderAwards(num);
   renderCharts(row);
   if (history.replaceState) history.replaceState(null, "", `#${encodeURIComponent(num)}`);
 }
@@ -300,26 +459,39 @@ function buildTable() {
   render();
 }
 
-Papa.parse(CSV_URL, {
-  download: true,
-  header: true,
-  skipEmptyLines: true,
-  complete: res => {
-    if (res.errors && res.errors.length) console.warn(res.errors);
-    DATA = res.data.filter(r => r["Team Number"]);
+function loadCsv(url) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true, header: true, skipEmptyLines: true,
+      complete: res => resolve(res.data),
+      error: reject,
+    });
+  });
+}
+
+Promise.all([
+  loadCsv(CSV_URL),
+  loadCsv(HISTORY_CSV_URL).catch(() => []),
+  loadCsv(AWARDS_CSV_URL).catch(() => []),
+])
+  .then(([mainRows, historyRows, awardRows]) => {
+    DATA = mainRows.filter(r => r["Team Number"]);
+    HISTORY = historyRows.filter(r => r["Team Number"]);
+    AWARDS = awardRows.filter(r => r["Team Number"]);
     document.getElementById("team-count").textContent = DATA.length;
     buildPicker();
     buildTable();
     const hash = decodeURIComponent(location.hash.replace(/^#/, ""));
-    const initial = DATA.find(d => d["Team Number"] === hash) ? hash : DATA.sort((a, b) => naturalCmp(a["Team Number"], b["Team Number"]))[0]["Team Number"];
+    const initial = DATA.find(d => d["Team Number"] === hash)
+      ? hash
+      : DATA.slice().sort((a, b) => naturalCmp(a["Team Number"], b["Team Number"]))[0]["Team Number"];
     document.getElementById("team-picker").value = initial;
     selectTeam(initial);
-  },
-  error: err => {
+  })
+  .catch(err => {
     document.getElementById("error").style.display = "block";
-    document.getElementById("error").textContent = `Failed to load ${CSV_URL}: ${err.message || err}`;
-  },
-});
+    document.getElementById("error").textContent = `Failed to load data: ${err.message || err}`;
+  });
 </script>
 </body>
 </html>

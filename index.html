@@ -225,12 +225,20 @@ function isSignatureEvent(name) {
   return /signature event/i.test(name || "");
 }
 
-// Playoff depth points — unified scale across all events.
+// Playoff depth points — wider spread so deep runs dominate shallow ones.
 // Qual: team didn't make eliminations at all.
 // R16/QF: made playoffs, exited before semis.
-// SF/F/Champ: deeper runs. Doubled at Signature Events.
-const DEPTH_POINTS = { Qual: 0, R16: 1, QF: 1, SF: 2, F: 3, Champ: 4 };
-const SIG_MULTIPLIER = 2;
+// SF/F/Champ: deeper runs, each tier ~doubles the one below.
+const DEPTH_POINTS = { Qual: 0, R16: 1, QF: 2, SF: 4, F: 7, Champ: 10 };
+const SIG_MULTIPLIER = 2;          // Signature Events
+const CHINA_EVENT_MULTIPLIER = 1.5; // events hosted in China (stacks with Sig)
+
+function eventMultiplier(h) {
+  let m = 1;
+  if (isSignatureEvent(h["Event Name"])) m *= SIG_MULTIPLIER;
+  if ((h["Event Country"] || "") === "China") m *= CHINA_EVENT_MULTIPLIER;
+  return m;
+}
 
 function tournamentScore(teamNum) {
   let s = 0;
@@ -238,10 +246,9 @@ function tournamentScore(teamNum) {
     if (h["Team Number"] !== teamNum) continue;
     const pts = DEPTH_POINTS[h["Playoff Depth"]] ?? 0;
     if (!pts) continue;
-    const mult = isSignatureEvent(h["Event Name"]) ? SIG_MULTIPLIER : 1;
-    s += pts * mult;
+    s += pts * eventMultiplier(h);
   }
-  return s;
+  return +s.toFixed(1);
 }
 
 function sigWinrate(teamNum) {
@@ -379,9 +386,10 @@ const baseProgressOptions = rows => ({
         afterBody: (items) => {
           const i = items[0].dataIndex;
           const r = rows[i];
+          const country = r["Event Country"] ? ` • ${r["Event Country"]}` : "";
           return [
             `W-L-T: ${r["Wins"]}-${r["Losses"]}-${r["Ties"]}  (${r["Matches"]} matches)`,
-            `Playoff: ${r["Playoff Depth"] || "Qual"}`,
+            `Playoff: ${r["Playoff Depth"] || "Qual"}${country}`,
           ];
         },
       },

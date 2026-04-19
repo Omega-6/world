@@ -122,10 +122,11 @@ def fetch_playoff_depth(team_id):
     return {eid: ROUND_LABEL[r] for eid, r in best.items() if r in ROUND_LABEL}
 
 
-def fetch_rankings(team_id, event_dates=None):
+def fetch_rankings(team_id, event_details=None):
     """Sum season totals, plus return per-event history rows."""
     wins = losses = ties = events = rank_sum = 0
     history = []
+    ed = event_details or {}
     data = re_get(f"https://www.robotevents.com/api/v2/teams/{team_id}/rankings?season%5B%5D={SEASON_ID}&per_page=250")
     if data:
         for rk in data.get("data", []):
@@ -137,10 +138,12 @@ def fetch_rankings(team_id, event_dates=None):
             ev = rk.get("event", {}) or {}
             ev_id = ev.get("id")
             total_m = w + l + t
+            detail = ed.get(ev_id, {}) if isinstance(ed.get(ev_id), dict) else {}
             history.append({
                 "event_id": ev_id,
                 "event_name": ev.get("name", "Unknown"),
-                "event_date": (event_dates or {}).get(ev_id, ""),
+                "event_date": detail.get("date", ""),
+                "event_country": detail.get("country", ""),
                 "rank": rank,
                 "wins": w,
                 "losses": l,
@@ -162,21 +165,25 @@ def fetch_rankings(team_id, event_dates=None):
     }, history
 
 
-def fetch_all_event_dates():
-    """One-shot: build {event_id: start_date} for the whole V5RC season."""
-    dates = {}
+def fetch_all_event_details():
+    """One-shot: build {event_id: (start_date, country)} for the whole V5RC season."""
+    details = {}
     page = 1
     while True:
         data = re_get(f"https://www.robotevents.com/api/v2/events?season%5B%5D={SEASON_ID}&per_page=250&page={page}")
         if not data:
             break
         for ev in data.get("data", []):
-            dates[ev.get("id")] = (ev.get("start") or "")[:10]
+            loc = ev.get("location") or {}
+            details[ev.get("id")] = {
+                "date": (ev.get("start") or "")[:10],
+                "country": loc.get("country") or "",
+            }
         meta = data.get("meta", {})
         if meta.get("current_page", 0) >= meta.get("last_page", 0):
             break
         page += 1
-    return dates
+    return details
 
 
 def fetch_awards(team_id):
@@ -215,15 +222,16 @@ def probe_trueskill():
     TRUESKILL_ENABLED = False
 
 
-def fetch_awards_detailed(team_id, event_dates):
+def fetch_awards_detailed(team_id, event_details):
     """Return (count, list of per-award dicts)."""
     data = re_get(f"https://www.robotevents.com/api/v2/teams/{team_id}/awards?season%5B%5D={SEASON_ID}&per_page=250")
     rows = []
     if data:
         for a in data.get("data", []):
             ev = a.get("event", {}) or {}
+            d = event_details.get(ev.get("id"), {}) if isinstance(event_details.get(ev.get("id")), dict) else {}
             rows.append({
-                "Event Date": event_dates.get(ev.get("id"), ""),
+                "Event Date": d.get("date", ""),
                 "Event Name": ev.get("name", ""),
                 "Event ID": ev.get("id"),
                 "Award": a.get("title", ""),
@@ -244,7 +252,7 @@ def fetch_trueskill(team_num):
     return 0, 0.0
 
 
-def process(team_num, tid, tname, event_dates):
+def process(team_num, tid, tname, event_details):
     history_rows = []
     award_rows = []
     row = {
@@ -271,9 +279,9 @@ def process(team_num, tid, tname, event_dates):
         row["TrueSkill Score"] = ts_score
         return row, history_rows, award_rows
 
-    ranks, history = fetch_rankings(tid, event_dates)
+    ranks, history = fetch_rankings(tid, event_details)
     depth_by_event = fetch_playoff_depth(tid)
-    awards, award_details = fetch_awards_detailed(tid, event_dates)
+    awards, award_details = fetch_awards_detailed(tid, event_details)
     # Build event_id -> depth override from awards:
     # "Tournament Champions" -> "Champ", "Finalists" -> "F" (already covered by matches but safe).
     for a in award_details:
@@ -348,9 +356,9 @@ def main():
     missing = [t for t in TEAMS if t not in id_map]
     print(f"Resolved {len(id_map)}/{len(TEAMS)}. Missing: {missing if missing else 'none'}")
 
-    print("Fetching season event calendar for dates...")
-    event_dates = fetch_all_event_dates()
-    print(f"  got {len(event_dates)} events")
+    print("Fetching season event calendar for dates + location...")
+    event_details = fetch_all_event_details()
+    print(f"  got {len(event_details)} events")
 
     print(f"Processing stats...")
     start = time.time()
@@ -359,7 +367,7 @@ def main():
     awards_all = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
         futures = {
-            ex.submit(process, t, *id_map.get(t, (None, None)), event_dates): t
+            ex.submit(process, t, *id_map.get(t, (None, None)), event_details): t
             for t in TEAMS
         }
         for i, fut in enumerate(concurrent.futures.as_completed(futures), 1):
@@ -381,12 +389,13 @@ def main():
     if not hist_df.empty:
         hist_df = hist_df.rename(columns={
             "event_id": "Event ID", "event_name": "Event Name", "event_date": "Event Date",
+            "event_country": "Event Country",
             "rank": "Rank", "wins": "Wins", "losses": "Losses", "ties": "Ties",
             "matches": "Matches", "winrate_pct": "Winrate %",
         })
         hist_df["_sort_team"] = hist_df["Team Number"].map(natural_key)
         hist_df = hist_df.sort_values(["_sort_team", "Event Date"]).drop(columns="_sort_team").reset_index(drop=True)
-        hist_df = hist_df[["Team Number", "Event Date", "Event Name", "Event ID",
+        hist_df = hist_df[["Team Number", "Event Date", "Event Name", "Event ID", "Event Country",
                            "Rank", "Wins", "Losses", "Ties", "Matches", "Winrate %",
                            "Playoff Depth"]]
         hist_df.to_csv(OUTPUT_HISTORY_CSV, index=False)

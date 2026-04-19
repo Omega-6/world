@@ -140,10 +140,17 @@
       <ul id="awards-list" class="awards-list"></ul>
       <div id="awards-empty" class="awards-empty" style="display:none">No awards recorded this season.</div>
     </div>
-    <div class="chart-card" style="margin-bottom: 16px;">
-      <h3>Season Progression — Winrate & Rank per Event</h3>
-      <canvas id="chart-progress"></canvas>
-      <div id="progress-empty" style="display:none; color:var(--muted); font-size:13px; padding: 12px 0;">No per-event history available for this team.</div>
+    <div class="charts" style="margin-bottom: 16px;">
+      <div class="chart-card">
+        <h3>Winrate per Event (Season)</h3>
+        <canvas id="chart-winrate"></canvas>
+        <div id="winrate-empty" style="display:none; color:var(--muted); font-size:13px; padding: 12px 0;">No per-event history available.</div>
+      </div>
+      <div class="chart-card">
+        <h3>Qual Rank per Event (Season)</h3>
+        <canvas id="chart-rank"></canvas>
+        <div id="rank-empty" style="display:none; color:var(--muted); font-size:13px; padding: 12px 0;">No per-event history available.</div>
+      </div>
     </div>
     <div class="charts">
       <div class="chart-card">
@@ -197,7 +204,7 @@ function naturalCmp(a, b) {
 let DATA = [];
 let HISTORY = [];
 let AWARDS = [];
-let wltChart, divChart, progressChart;
+let wltChart, divChart, winrateChart, rankChart;
 
 function fmt(v) {
   if (v === null || v === undefined || v === "") return "—";
@@ -221,102 +228,115 @@ function shortEventName(s) {
   return out.length > 45 ? out.slice(0, 42) + "…" : out;
 }
 
-function renderProgressChart(teamNum) {
-  const ctx = document.getElementById("chart-progress");
-  const empty = document.getElementById("progress-empty");
-  if (progressChart) progressChart.destroy();
-
-  const rows = HISTORY
+function progressRows(teamNum) {
+  return HISTORY
     .filter(h => h["Team Number"] === teamNum)
     .sort((a, b) => String(a["Event Date"]).localeCompare(String(b["Event Date"])));
+}
 
-  if (!rows.length) {
-    ctx.style.display = "none";
-    empty.style.display = "block";
-    return;
-  }
-  ctx.style.display = "block";
-  empty.style.display = "none";
+const baseProgressOptions = rows => ({
+  responsive: true,
+  interaction: { mode: "index", intersect: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        afterBody: (items) => {
+          const i = items[0].dataIndex;
+          const r = rows[i];
+          return [`W-L-T: ${r["Wins"]}-${r["Losses"]}-${r["Ties"]}  (${r["Matches"]} matches)`];
+        },
+      },
+    },
+  },
+  scales: {
+    x: {
+      ticks: { color: "#e2e8f0", font: { size: 10 }, maxRotation: 40, minRotation: 20, autoSkip: false },
+      grid: { display: false },
+    },
+  },
+});
+
+function renderWinrateChart(teamNum) {
+  const ctx = document.getElementById("chart-winrate");
+  const empty = document.getElementById("winrate-empty");
+  if (winrateChart) winrateChart.destroy();
+  const rows = progressRows(teamNum);
+  if (!rows.length) { ctx.style.display = "none"; empty.style.display = "block"; return; }
+  ctx.style.display = "block"; empty.style.display = "none";
 
   const labels = rows.map(r => `${r["Event Date"]} — ${shortEventName(r["Event Name"])}`);
   const winrates = rows.map(r => +r["Winrate %"]);
-  const ranks = rows.map(r => +r["Rank"]);
 
-  progressChart = new Chart(ctx, {
+  const opts = baseProgressOptions(rows);
+  opts.scales.y = {
+    min: 0, max: 100,
+    title: { display: true, text: "Winrate %", color: "#22c55e" },
+    ticks: { color: "#94a3b8", callback: v => v + "%" },
+    grid: { color: "#334155" },
+  };
+
+  winrateChart = new Chart(ctx, {
     type: "line",
     data: {
       labels,
-      datasets: [
-        {
-          label: "Winrate %",
-          data: winrates,
-          borderColor: "#22c55e",
-          backgroundColor: "rgba(34,197,94,0.15)",
-          tension: 0.25,
-          fill: true,
-          yAxisID: "y",
-          pointRadius: 5,
-          pointHoverRadius: 7,
-        },
-        {
-          label: "Qual Rank (lower = better)",
-          data: ranks,
-          borderColor: "#f59e0b",
-          backgroundColor: "rgba(245,158,11,0.05)",
-          borderDash: [5, 4],
-          tension: 0.25,
-          fill: false,
-          yAxisID: "y1",
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        },
-      ],
+      datasets: [{
+        label: "Winrate %",
+        data: winrates,
+        borderColor: "#22c55e",
+        backgroundColor: "rgba(34,197,94,0.2)",
+        tension: 0.25,
+        fill: true,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }],
     },
-    options: {
-      responsive: true,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { labels: { color: "#e2e8f0" } },
-        tooltip: {
-          callbacks: {
-            afterBody: (items) => {
-              const i = items[0].dataIndex;
-              const r = rows[i];
-              return [`W-L-T: ${r["Wins"]}-${r["Losses"]}-${r["Ties"]}  (${r["Matches"]} matches)`];
-            },
-          },
-        },
-      },
-      scales: {
-        y: {
-          position: "left",
-          min: 0, max: 100,
-          title: { display: true, text: "Winrate %", color: "#22c55e" },
-          ticks: { color: "#94a3b8" },
-          grid: { color: "#334155" },
-        },
-        y1: {
-          position: "right",
-          reverse: true,
-          title: { display: true, text: "Rank", color: "#f59e0b" },
-          ticks: { color: "#94a3b8", stepSize: 1, precision: 0 },
-          grid: { display: false },
-          beginAtZero: false,
-        },
-        x: {
-          ticks: {
-            color: "#e2e8f0", font: { size: 10 },
-            maxRotation: 40, minRotation: 20, autoSkip: false,
-          },
-          grid: { display: false },
-        },
-      },
+    options: opts,
+  });
+}
+
+function renderRankChart(teamNum) {
+  const ctx = document.getElementById("chart-rank");
+  const empty = document.getElementById("rank-empty");
+  if (rankChart) rankChart.destroy();
+  const rows = progressRows(teamNum);
+  if (!rows.length) { ctx.style.display = "none"; empty.style.display = "block"; return; }
+  ctx.style.display = "block"; empty.style.display = "none";
+
+  const labels = rows.map(r => `${r["Event Date"]} — ${shortEventName(r["Event Name"])}`);
+  const ranks = rows.map(r => +r["Rank"]);
+
+  const opts = baseProgressOptions(rows);
+  opts.scales.y = {
+    reverse: true, // lower rank = better = top of chart
+    title: { display: true, text: "Qual Rank (lower = better)", color: "#f59e0b" },
+    ticks: { color: "#94a3b8", stepSize: 1, precision: 0 },
+    grid: { color: "#334155" },
+    beginAtZero: false,
+  };
+
+  rankChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Qual Rank",
+        data: ranks,
+        borderColor: "#f59e0b",
+        backgroundColor: "rgba(245,158,11,0.2)",
+        tension: 0.25,
+        fill: true,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }],
     },
+    options: opts,
   });
 }
 
 function renderCharts(row) {
-  renderProgressChart(row["Team Number"]);
+  renderWinrateChart(row["Team Number"]);
+  renderRankChart(row["Team Number"]);
   // 1. W/L/T bar
   const ctx1 = document.getElementById("chart-wlt");
   if (wltChart) wltChart.destroy();

@@ -99,6 +99,29 @@ def batch_resolve_teams(team_nums):
     return out
 
 
+ROUND_LABEL = {3: "R16", 4: "QF", 5: "SF", 6: "F"}
+
+
+def fetch_playoff_depth(team_id):
+    """Return {event_id: deepest_round_label} using the matches endpoint.
+    Round labels: 'R16', 'QF', 'SF', 'F'. (Qual-only events are omitted.)
+    'Champ' is applied later by crosschecking awards."""
+    data = re_get(f"https://www.robotevents.com/api/v2/teams/{team_id}/matches?season%5B%5D={SEASON_ID}&per_page=250")
+    if not data:
+        return {}
+    best = {}  # event_id -> max round (int)
+    for m in data.get("data", []):
+        rnd = m.get("round")
+        if not rnd or rnd < 3:  # skip practice(1) and qualification(2)
+            continue
+        eid = (m.get("event") or {}).get("id")
+        if eid is None:
+            continue
+        if rnd > best.get(eid, 0):
+            best[eid] = rnd
+    return {eid: ROUND_LABEL[r] for eid, r in best.items() if r in ROUND_LABEL}
+
+
 def fetch_rankings(team_id, event_dates=None):
     """Sum season totals, plus return per-event history rows."""
     wins = losses = ties = events = rank_sum = 0
@@ -249,10 +272,23 @@ def process(team_num, tid, tname, event_dates):
         return row, history_rows, award_rows
 
     ranks, history = fetch_rankings(tid, event_dates)
+    depth_by_event = fetch_playoff_depth(tid)
+    awards, award_details = fetch_awards_detailed(tid, event_dates)
+    # Build event_id -> depth override from awards:
+    # "Tournament Champions" -> "Champ", "Finalists" -> "F" (already covered by matches but safe).
+    for a in award_details:
+        title = (a.get("Award") or "").lower()
+        eid = a.get("Event ID")
+        if eid is None:
+            continue
+        if "tournament champion" in title:
+            depth_by_event[eid] = "Champ"
+        elif "tournament finalist" in title and depth_by_event.get(eid) != "Champ":
+            depth_by_event[eid] = "F"
     for h in history:
         h["Team Number"] = team_num
+        h["Playoff Depth"] = depth_by_event.get(h.get("event_id"), "Qual")
         history_rows.append(h)
-    awards, award_details = fetch_awards_detailed(tid, event_dates)
     for a in award_details:
         a["Team Number"] = team_num
         award_rows.append(a)
@@ -351,7 +387,8 @@ def main():
         hist_df["_sort_team"] = hist_df["Team Number"].map(natural_key)
         hist_df = hist_df.sort_values(["_sort_team", "Event Date"]).drop(columns="_sort_team").reset_index(drop=True)
         hist_df = hist_df[["Team Number", "Event Date", "Event Name", "Event ID",
-                           "Rank", "Wins", "Losses", "Ties", "Matches", "Winrate %"]]
+                           "Rank", "Wins", "Losses", "Ties", "Matches", "Winrate %",
+                           "Playoff Depth"]]
         hist_df.to_csv(OUTPUT_HISTORY_CSV, index=False)
         print(f"History saved -> {OUTPUT_HISTORY_CSV}  ({len(hist_df)} event rows)")
 

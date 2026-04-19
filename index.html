@@ -97,6 +97,8 @@
   th { color: var(--muted); font-weight: 500; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--panel); }
   th:hover { color: var(--accent); }
   tr:hover td { background: rgba(59, 130, 246, 0.08); }
+  td.team-link { color: #60a5fa; cursor: pointer; font-weight: 500; }
+  td.team-link:hover { text-decoration: underline; }
   .error { color: var(--red); padding: 32px; text-align: center; }
   .awards-card {
     background: var(--panel);
@@ -653,15 +655,30 @@ function buildTable() {
         const arrow = sortState.col === c ? (sortState.dir > 0 ? " ▲" : " ▼") : "";
         return `<th data-col="${c}">${c}${arrow}</th>`;
       }).join("") + "</tr></thead>" +
-      "<tbody>" + rows.map(r =>
-        "<tr>" + cols.map(c => `<td>${fmt(r[c])}</td>`).join("") + "</tr>"
-      ).join("") + "</tbody>";
+      "<tbody>" + rows.map(r => {
+        const teamAttr = ` data-team="${String(r["Team Number"]).replace(/"/g, "&quot;")}"`;
+        return "<tr>" + cols.map(c => {
+          const clickable = (c === "Team Number" || c === "Team Name");
+          return clickable
+            ? `<td class="team-link"${teamAttr}>${fmt(r[c])}</td>`
+            : `<td>${fmt(r[c])}</td>`;
+        }).join("") + "</tr>";
+      }).join("") + "</tbody>";
     t.querySelectorAll("th").forEach(th => {
       th.addEventListener("click", () => {
         const c = th.dataset.col;
         if (sortState.col === c) sortState.dir *= -1;
         else { sortState.col = c; sortState.dir = 1; }
         render();
+      });
+    });
+    t.querySelectorAll("td.team-link").forEach(td => {
+      td.addEventListener("click", () => {
+        const num = td.dataset.team;
+        if (!num) return;
+        document.getElementById("team-picker").value = num;
+        selectTeam(num);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
     });
   };

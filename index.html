@@ -196,6 +196,21 @@ const METRIC_ORDER = [
   ["TrueSkill Score", "TrueSkill Score"],
 ];
 
+// Regional difficulty adjustment. Chinese teams face stiffer average competition
+// (many strong programs, deep qualifier fields), which deflates their winrate/TS
+// signals. A flat bonus partially offsets that.
+const REGIONAL_BONUS = {
+  china: 8,
+};
+const CHINA_TEAMS = new Set([
+  "291Z", "2815Z", "7262A", "7486A", "36930X", "54001A", "81988B", "98115A",
+]);
+
+function regionalBonus(teamNum) {
+  if (CHINA_TEAMS.has(teamNum)) return REGIONAL_BONUS.china;
+  return 0;
+}
+
 // Weights for composite skill ranking. Percentile within division per component.
 const COMPOSITE_WEIGHTS = {
   tournament: 0.25, // Champ=3, Final=2, SF=1; ×2 at Signature Events
@@ -288,13 +303,15 @@ function computeComposite(data) {
   const sigP = percentileRank(sigWr);
 
   data.forEach((d, i) => {
-    const score = wp[i]    * COMPOSITE_WEIGHTS.winrate
-                + tp[i]    * COMPOSITE_WEIGHTS.trueskill
-                + ap[i]    * COMPOSITE_WEIGHTS.awards
-                + sp[i]    * COMPOSITE_WEIGHTS.skills
-                + tournP[i] * COMPOSITE_WEIGHTS.tournament
-                + sigP[i]   * COMPOSITE_WEIGHTS.sigWinrate;
-    d["Composite Score"] = +score.toFixed(1);
+    const base = wp[i]     * COMPOSITE_WEIGHTS.winrate
+               + tp[i]     * COMPOSITE_WEIGHTS.trueskill
+               + ap[i]     * COMPOSITE_WEIGHTS.awards
+               + sp[i]     * COMPOSITE_WEIGHTS.skills
+               + tournP[i] * COMPOSITE_WEIGHTS.tournament
+               + sigP[i]   * COMPOSITE_WEIGHTS.sigWinrate;
+    const bonus = regionalBonus(d["Team Number"]);
+    d["Regional Bonus"] = bonus;
+    d["Composite Score"] = +(base + bonus).toFixed(1);
   });
 
   const ranked = [...data].sort((a, b) => b["Composite Score"] - a["Composite Score"]);
@@ -324,15 +341,19 @@ function renderMetrics(row) {
   const el = document.getElementById("metrics");
   el.innerHTML = METRIC_ORDER.map(([key, label]) => {
     let val = row[key];
+    let badge = "";
     if (key === "Division Rank" && val) val = `#${val} / ${DATA.length}`;
     if (key === "Sig Winrate %") {
       const m = +row["Sig Matches"] || 0;
       val = m ? `${val}% (${m} matches)` : "no sig events";
     }
+    if (key === "Composite Score" && +row["Regional Bonus"]) {
+      badge = `<span style="color:#f59e0b; font-size:11px; font-weight:500;"> (+${row["Regional Bonus"]} regional)</span>`;
+    }
     return `
       <div class="metric">
         <div class="label">${label}</div>
-        <div class="value">${fmt(val)}</div>
+        <div class="value">${fmt(val)}${badge}</div>
       </div>
     `;
   }).join("");

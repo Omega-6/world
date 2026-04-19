@@ -852,15 +852,24 @@ const COLUMN_ORDER_PRIORITY = [
   "Composite Score",
   "Team Number",
   "Team Name",
-  "Tournament Score",
-  "Sig Winrate %",
-  "Sig Matches",
+  "TrueSkill Ranking",
   "TrueSkill Score",
   "Winrate %",
-  "Combined Skills",
+  "Sig Winrate %",
   "Total Awards",
-  "Regional Bonus",
+  "Tournament Score",
+  "Sig Matches",
+  "Events Attended",
+  "Avg Qual Rank",
+  "Total Matches",
+  "Total Wins",
+  "Total Losses",
+  "Total Ties",
+  "Combined Skills",
+  "Driver Skills",
+  "Programming Skills",
 ];
+const EXCLUDED_COLUMNS = new Set(["Regional Bonus"]);
 
 let sortState = { col: "Division Rank", dir: 1 };
 function buildTable() {
@@ -868,7 +877,7 @@ function buildTable() {
   const allCols = Object.keys(DATA[0] || {});
   const cols = [
     ...COLUMN_ORDER_PRIORITY.filter(c => allCols.includes(c)),
-    ...allCols.filter(c => !COLUMN_ORDER_PRIORITY.includes(c)),
+    ...allCols.filter(c => !COLUMN_ORDER_PRIORITY.includes(c) && !EXCLUDED_COLUMNS.has(c)),
   ];
   const render = () => {
     const rows = DATA.slice();

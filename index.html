@@ -423,7 +423,7 @@ function renderWinrateChart(teamNum) {
     };
   });
 
-  const labels = rows.map(r => `${r["Event Date"]} — ${shortEventName(r["Event Name"])}`);
+  const labels = rows.map(r => shortEventName(r["Event Name"]));
   const data = cumulative.map(c => c.value);
 
   const opts = baseProgressOptions(rows);
@@ -475,7 +475,7 @@ function renderRankChart(teamNum) {
   if (!rows.length) { ctx.style.display = "none"; empty.style.display = "block"; return; }
   ctx.style.display = "block"; empty.style.display = "none";
 
-  const labels = rows.map(r => `${r["Event Date"]} — ${shortEventName(r["Event Name"])}`);
+  const labels = rows.map(r => shortEventName(r["Event Name"]));
   const ranks = rows.map(r => +r["Rank"]);
 
   const opts = baseProgressOptions(rows);

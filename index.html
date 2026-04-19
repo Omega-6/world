@@ -612,10 +612,29 @@ function buildPicker() {
   picker.addEventListener("change", e => selectTeam(e.target.value));
 }
 
-let sortState = { col: null, dir: 1 };
+const COLUMN_ORDER_PRIORITY = [
+  "Division Rank",
+  "Composite Score",
+  "Team Number",
+  "Team Name",
+  "Tournament Score",
+  "Sig Winrate %",
+  "Sig Matches",
+  "TrueSkill Score",
+  "Winrate %",
+  "Combined Skills",
+  "Total Awards",
+  "Regional Bonus",
+];
+
+let sortState = { col: "Division Rank", dir: 1 };
 function buildTable() {
   const t = document.getElementById("full-table");
-  const cols = Object.keys(DATA[0] || {});
+  const allCols = Object.keys(DATA[0] || {});
+  const cols = [
+    ...COLUMN_ORDER_PRIORITY.filter(c => allCols.includes(c)),
+    ...allCols.filter(c => !COLUMN_ORDER_PRIORITY.includes(c)),
+  ];
   const render = () => {
     const rows = DATA.slice();
     if (sortState.col) {

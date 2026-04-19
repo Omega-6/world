@@ -155,10 +155,6 @@
     </div>
     <div class="charts">
       <div class="chart-card">
-        <h3>Match Outcomes (Season)</h3>
-        <canvas id="chart-wlt"></canvas>
-      </div>
-      <div class="chart-card">
         <h3>Team vs Division</h3>
         <canvas id="chart-div"></canvas>
       </div>
@@ -341,7 +337,7 @@ function naturalCmp(a, b) {
 let DATA = [];
 let HISTORY = [];
 let AWARDS = [];
-let wltChart, divChart, winrateChart, rankChart;
+let divChart, winrateChart, rankChart;
 
 function fmt(v) {
   if (v === null || v === undefined || v === "") return "—";
@@ -515,32 +511,8 @@ function renderRankChart(teamNum) {
 function renderCharts(row) {
   renderWinrateChart(row["Team Number"]);
   renderRankChart(row["Team Number"]);
-  // 1. W/L/T bar
-  const ctx1 = document.getElementById("chart-wlt");
-  if (wltChart) wltChart.destroy();
-  wltChart = new Chart(ctx1, {
-    type: "bar",
-    data: {
-      labels: ["Wins", "Losses", "Ties"],
-      datasets: [{
-        data: [+row["Total Wins"], +row["Total Losses"], +row["Total Ties"]],
-        backgroundColor: ["#22c55e", "#ef4444", "#64748b"],
-        borderColor: ["#16a34a", "#dc2626", "#475569"],
-        borderWidth: 1,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
-        x: { ticks: { color: "#e2e8f0" }, grid: { display: false } },
-      },
-    },
-  });
 
-  // 2. Team vs Division (median + max) on 5 key stats
+  // Team vs Division (median + max) on 5 key stats
   const stats = ["Total Wins", "Total Matches", "Total Awards", "Combined Skills", "Events Attended"];
   const teamVals = stats.map(c => +row[c]);
   const medians = stats.map(c => median(DATA.map(d => +d[c])));

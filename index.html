@@ -119,6 +119,30 @@
   .awards-list .event { color: var(--muted); font-size: 12px; margin-top: 2px; }
   .awards-list .date { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
   .awards-empty { color: var(--muted); font-size: 13px; }
+  .notes-card {
+    background: var(--panel);
+    border: 1px solid var(--panel2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  .notes-card h3 { margin: 0 0 10px; font-size: 15px; color: var(--muted); font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+  .notes-card textarea {
+    width: 100%;
+    min-height: 140px;
+    background: #0f172a;
+    color: var(--text);
+    border: 1px solid var(--panel2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+  }
+  .notes-card textarea:focus { outline: none; border-color: var(--accent); }
+  .notes-status { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .notes-status.saved { color: #22c55e; }
+  .notes-status.err { color: var(--red); }
 </style>
 </head>
 <body>
@@ -136,6 +160,13 @@
   <section id="team-view" style="display:none">
     <h2 id="team-header"></h2>
     <div class="metrics" id="metrics"></div>
+    <div class="notes-card">
+      <h3>
+        <span>Scouting Notes</span>
+        <span id="notes-status" class="notes-status">—</span>
+      </h3>
+      <textarea id="notes-textarea" placeholder="Notes about this team (saved automatically)…"></textarea>
+    </div>
     <div class="awards-card">
       <h3>Awards Won This Season — <span id="awards-count">0</span></h3>
       <ul id="awards-list" class="awards-list"></ul>
@@ -173,6 +204,89 @@
 const CSV_URL = "Worlds2026_Research_Division_Stats.csv";
 const HISTORY_CSV_URL = "Worlds2026_Research_Division_History.csv";
 const AWARDS_CSV_URL = "Worlds2026_Research_Division_Awards.csv";
+
+// ---- NOTES STORAGE ----
+// Notes always saved to localStorage. If the two JSONBin fields below are
+// filled in, notes also sync across devices via jsonbin.io (free tier).
+// To enable cross-device sync:
+//   1. Sign up at https://jsonbin.io (email only)
+//   2. API Keys -> copy "X-Master-Key"
+//   3. Create a new bin with body: {}
+//   4. Copy the Bin ID from the URL
+//   5. Paste both below, commit, push.
+const JSONBIN_CONFIG = {
+  binId: "",      // e.g. "65ab1234567890abcdef1234"
+  masterKey: "",  // e.g. "$2a$10$..."
+};
+const NOTES_LOCALSTORAGE_KEY = "rd_team_notes_v1";
+let NOTES = {};
+let notesSaveTimer = null;
+
+async function loadNotesFromRemote() {
+  if (!JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.masterKey) return null;
+  try {
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
+      headers: { "X-Master-Key": JSONBIN_CONFIG.masterKey },
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.record || {};
+  } catch (e) {
+    console.warn("Notes remote fetch failed:", e);
+    return null;
+  }
+}
+
+async function saveNotesToRemote() {
+  if (!JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.masterKey) return "local";
+  try {
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_CONFIG.masterKey },
+      body: JSON.stringify(NOTES),
+    });
+    return r.ok ? "synced" : "err";
+  } catch (e) {
+    console.warn("Notes remote save failed:", e);
+    return "err";
+  }
+}
+
+async function initNotes() {
+  const remote = await loadNotesFromRemote();
+  if (remote) {
+    NOTES = remote;
+    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(NOTES));
+  } else {
+    try { NOTES = JSON.parse(localStorage.getItem(NOTES_LOCALSTORAGE_KEY) || "{}"); }
+    catch { NOTES = {}; }
+  }
+}
+
+function setNotesStatus(kind, text) {
+  const el = document.getElementById("notes-status");
+  el.className = "notes-status" + (kind ? " " + kind : "");
+  el.textContent = text;
+}
+
+function scheduleNotesSave() {
+  clearTimeout(notesSaveTimer);
+  setNotesStatus("", "saving…");
+  notesSaveTimer = setTimeout(async () => {
+    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(NOTES));
+    const result = await saveNotesToRemote();
+    if (result === "synced") setNotesStatus("saved", "synced ✓");
+    else if (result === "local") setNotesStatus("saved", "saved locally ✓");
+    else setNotesStatus("err", "saved locally (sync failed)");
+  }, 500);
+}
+
+function renderNotes(teamNum) {
+  const ta = document.getElementById("notes-textarea");
+  ta.value = NOTES[teamNum] || "";
+  ta.dataset.team = teamNum;
+  setNotesStatus("", NOTES[teamNum] ? "—" : "");
+}
 const METRIC_ORDER = [
   ["Division Rank", "Division Rank"],
   ["Composite Score", "Composite Score"],
@@ -577,6 +691,7 @@ function selectTeam(num) {
   document.getElementById("team-view").style.display = "block";
   document.getElementById("team-header").textContent = `${row["Team Number"]} — ${row["Team Name"]}`;
   renderMetrics(row);
+  renderNotes(num);
   renderAwards(num);
   renderCharts(row);
   if (history.replaceState) history.replaceState(null, "", `#${encodeURIComponent(num)}`);
@@ -679,6 +794,7 @@ Promise.all([
   loadCsv(CSV_URL),
   loadCsv(HISTORY_CSV_URL).catch(() => []),
   loadCsv(AWARDS_CSV_URL).catch(() => []),
+  initNotes(),
 ])
   .then(([mainRows, historyRows, awardRows]) => {
     DATA = mainRows.filter(r => r["Team Number"]);
@@ -688,6 +804,14 @@ Promise.all([
     document.getElementById("team-count").textContent = DATA.length;
     buildPicker();
     buildTable();
+
+    document.getElementById("notes-textarea").addEventListener("input", (e) => {
+      const num = e.target.dataset.team;
+      if (!num) return;
+      NOTES[num] = e.target.value;
+      scheduleNotesSave();
+    });
+
     const hash = decodeURIComponent(location.hash.replace(/^#/, ""));
     const initial = DATA.find(d => d["Team Number"] === hash)
       ? hash

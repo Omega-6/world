@@ -142,7 +142,7 @@
     </div>
     <div class="charts" style="margin-bottom: 16px;">
       <div class="chart-card">
-        <h3>Winrate per Event (Season)</h3>
+        <h3>Cumulative Winrate (Season)</h3>
         <canvas id="chart-winrate"></canvas>
         <div id="winrate-empty" style="display:none; color:var(--muted); font-size:13px; padding: 12px 0;">No per-event history available.</div>
       </div>
@@ -265,13 +265,37 @@ function renderWinrateChart(teamNum) {
   if (!rows.length) { ctx.style.display = "none"; empty.style.display = "block"; return; }
   ctx.style.display = "block"; empty.style.display = "none";
 
+  let cumW = 0, cumM = 0;
+  const cumulative = rows.map(r => {
+    cumW += (+r["Wins"] || 0);
+    cumM += (+r["Matches"] || 0);
+    return {
+      value: cumM ? +(cumW / cumM * 100).toFixed(1) : 0,
+      cumW, cumM,
+    };
+  });
+
   const labels = rows.map(r => `${r["Event Date"]} — ${shortEventName(r["Event Name"])}`);
-  const winrates = rows.map(r => +r["Winrate %"]);
+  const data = cumulative.map(c => c.value);
 
   const opts = baseProgressOptions(rows);
+  opts.plugins.tooltip = {
+    callbacks: {
+      label: (item) => `Cumulative winrate: ${item.parsed.y}%`,
+      afterBody: (items) => {
+        const i = items[0].dataIndex;
+        const c = cumulative[i];
+        const r = rows[i];
+        return [
+          `Season total so far: ${c.cumW} W / ${c.cumM} matches`,
+          `This event: ${r["Wins"]}-${r["Losses"]}-${r["Ties"]} (${r["Winrate %"]}%)`,
+        ];
+      },
+    },
+  };
   opts.scales.y = {
     min: 0, max: 100,
-    title: { display: true, text: "Winrate %", color: "#22c55e" },
+    title: { display: true, text: "Cumulative Winrate %", color: "#22c55e" },
     ticks: { color: "#94a3b8", callback: v => v + "%" },
     grid: { color: "#334155" },
   };
@@ -281,8 +305,8 @@ function renderWinrateChart(teamNum) {
     data: {
       labels,
       datasets: [{
-        label: "Winrate %",
-        data: winrates,
+        label: "Cumulative Winrate %",
+        data,
         borderColor: "#22c55e",
         backgroundColor: "rgba(34,197,94,0.2)",
         tension: 0.25,

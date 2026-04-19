@@ -177,6 +177,10 @@ const CSV_URL = "Worlds2026_Research_Division_Stats.csv";
 const HISTORY_CSV_URL = "Worlds2026_Research_Division_History.csv";
 const AWARDS_CSV_URL = "Worlds2026_Research_Division_Awards.csv";
 const METRIC_ORDER = [
+  ["Division Rank", "Division Rank"],
+  ["Composite Score", "Composite Score"],
+  ["Tournament Score", "Tournament Score"],
+  ["Sig Winrate %", "Sig Event Winrate"],
   ["Winrate %", "Winrate %"],
   ["Total Matches", "Total Matches"],
   ["Total Wins", "Wins"],
@@ -191,6 +195,111 @@ const METRIC_ORDER = [
   ["TrueSkill Ranking", "TrueSkill Ranking"],
   ["TrueSkill Score", "TrueSkill Score"],
 ];
+
+// Weights for composite skill ranking. Percentile within division per component.
+const COMPOSITE_WEIGHTS = {
+  tournament: 0.25, // Champ=3, Final=2, SF=1; ×2 at Signature Events
+  sigWinrate: 0.25, // winrate at Signature Events only
+  trueskill: 0.20,
+  winrate: 0.15,    // general season winrate
+  skills: 0.10,     // Driver + Programming
+  awards: 0.05,     // total awards count (engineering/judging signal)
+};
+
+function isSignatureEvent(name) {
+  return /signature event/i.test(name || "");
+}
+
+function awardTier(title) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("tournament champion")) return "champ";
+  if (t.includes("tournament finalist")) return "final";
+  if (t.includes("tournament semifinalist")) return "semi";
+  return null;
+}
+const AWARD_TIER_POINTS = { champ: 3, final: 2, semi: 1 };
+const SIG_MULTIPLIER = 2;
+
+function tournamentScore(teamNum) {
+  let s = 0;
+  for (const a of AWARDS) {
+    if (a["Team Number"] !== teamNum) continue;
+    const tier = awardTier(a["Award"]);
+    if (!tier) continue;
+    const mult = isSignatureEvent(a["Event Name"]) ? SIG_MULTIPLIER : 1;
+    s += AWARD_TIER_POINTS[tier] * mult;
+  }
+  return s;
+}
+
+function sigWinrate(teamNum) {
+  // returns [rate, matches]. rate is 0 if no sig events attended (neutral penalty).
+  let w = 0, m = 0;
+  for (const h of HISTORY) {
+    if (h["Team Number"] !== teamNum) continue;
+    if (!isSignatureEvent(h["Event Name"])) continue;
+    w += (+h["Wins"] || 0);
+    m += (+h["Matches"] || 0);
+  }
+  return [m ? (w / m) * 100 : 0, m];
+}
+
+function percentileRank(values) {
+  // returns array: each value replaced with its percentile (0-100, higher = better).
+  // ties get the same percentile.
+  const sorted = [...values].map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+  const n = values.length;
+  const pct = new Array(n);
+  let i = 0;
+  while (i < n) {
+    let j = i;
+    while (j + 1 < n && sorted[j + 1][0] === sorted[i][0]) j++;
+    // average rank of the tied group (1-indexed)
+    const avgRank = (i + j) / 2 + 1;
+    const p = ((avgRank - 1) / (n - 1)) * 100; // 0..100
+    for (let k = i; k <= j; k++) pct[sorted[k][1]] = p;
+    i = j + 1;
+  }
+  return pct;
+}
+
+function computeComposite(data) {
+  // Attach raw per-team numbers first so they can be shown as metrics too.
+  data.forEach(d => {
+    const num = d["Team Number"];
+    const [sigWr, sigMatches] = sigWinrate(num);
+    d["Tournament Score"] = tournamentScore(num);
+    d["Sig Winrate %"] = +sigWr.toFixed(1);
+    d["Sig Matches"] = sigMatches;
+  });
+
+  const winrate = data.map(d => +d["Winrate %"] || 0);
+  const ts = data.map(d => +d["TrueSkill Score"] || 0);
+  const awards = data.map(d => +d["Total Awards"] || 0);
+  const skills = data.map(d => +d["Combined Skills"] || 0);
+  const tourn = data.map(d => d["Tournament Score"]);
+  const sigWr = data.map(d => d["Sig Winrate %"]);
+
+  const wp = percentileRank(winrate);
+  const tp = percentileRank(ts);
+  const ap = percentileRank(awards);
+  const sp = percentileRank(skills);
+  const tournP = percentileRank(tourn);
+  const sigP = percentileRank(sigWr);
+
+  data.forEach((d, i) => {
+    const score = wp[i]    * COMPOSITE_WEIGHTS.winrate
+                + tp[i]    * COMPOSITE_WEIGHTS.trueskill
+                + ap[i]    * COMPOSITE_WEIGHTS.awards
+                + sp[i]    * COMPOSITE_WEIGHTS.skills
+                + tournP[i] * COMPOSITE_WEIGHTS.tournament
+                + sigP[i]   * COMPOSITE_WEIGHTS.sigWinrate;
+    d["Composite Score"] = +score.toFixed(1);
+  });
+
+  const ranked = [...data].sort((a, b) => b["Composite Score"] - a["Composite Score"]);
+  ranked.forEach((d, i) => { d["Division Rank"] = i + 1; });
+}
 
 function naturalKey(n) {
   const m = String(n).match(/^(\d+)(.*)$/);
@@ -213,12 +322,20 @@ function fmt(v) {
 
 function renderMetrics(row) {
   const el = document.getElementById("metrics");
-  el.innerHTML = METRIC_ORDER.map(([key, label]) => `
-    <div class="metric">
-      <div class="label">${label}</div>
-      <div class="value">${fmt(row[key])}</div>
-    </div>
-  `).join("");
+  el.innerHTML = METRIC_ORDER.map(([key, label]) => {
+    let val = row[key];
+    if (key === "Division Rank" && val) val = `#${val} / ${DATA.length}`;
+    if (key === "Sig Winrate %") {
+      const m = +row["Sig Matches"] || 0;
+      val = m ? `${val}% (${m} matches)` : "no sig events";
+    }
+    return `
+      <div class="metric">
+        <div class="label">${label}</div>
+        <div class="value">${fmt(val)}</div>
+      </div>
+    `;
+  }).join("");
 }
 
 function shortEventName(s) {
@@ -522,6 +639,7 @@ Promise.all([
     DATA = mainRows.filter(r => r["Team Number"]);
     HISTORY = historyRows.filter(r => r["Team Number"]);
     AWARDS = awardRows.filter(r => r["Team Number"]);
+    computeComposite(DATA);
     document.getElementById("team-count").textContent = DATA.length;
     buildPicker();
     buildTable();

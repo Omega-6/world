@@ -358,14 +358,15 @@
 </div>
 
 <div id="panel-schedule" class="tab-panel">
-  <div class="schedule-search">
+  <div class="schedule-search" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
     <input id="schedule-search-input" type="search" autocomplete="off"
            placeholder="Search match (e.g. Q5) or team (e.g. 81Z)…" spellcheck="false" />
+    <button id="schedule-refresh" class="match-back" style="margin-bottom:0">↻ Refresh</button>
+    <span id="schedule-status" class="notes-status">—</span>
   </div>
-  <div id="schedule-empty" style="color:var(--muted); padding: 24px 0; font-size:14px;">
-    Schedule not yet released. Place <code>Worlds2026_Research_Division_Schedule.csv</code>
-    next to <code>index.html</code> (columns: <em>Match, Red 1, Red 2, Blue 1, Blue 2</em>)
-    and this tab will come alive.
+  <div id="schedule-empty" style="color:var(--muted); padding: 16px 0; font-size:13px;">
+    Pulling schedule from RobotEvents (event 64025 / Research Division). If the schedule hasn't been
+    released yet, this tab comes alive the moment it is — hit <em>Refresh</em> to re-check.
   </div>
   <div id="schedule-content" style="display:none">
     <div id="match-list" class="match-list"></div>
@@ -381,6 +382,13 @@ const CSV_URL = "Worlds2026_Research_Division_Stats.csv";
 const HISTORY_CSV_URL = "Worlds2026_Research_Division_History.csv";
 const AWARDS_CSV_URL = "Worlds2026_Research_Division_Awards.csv";
 const SCHEDULE_CSV_URL = "Worlds2026_Research_Division_Schedule.csv";
+
+// RobotEvents API — used to pull the schedule live. Same exposure posture as JSONBin.
+const RE_API = {
+  key: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIzIiwianRpIjoiMWU4OWE4NTUzMjNjNmE2MGExZGY4NDY2YWE3MTExNDk0NDY0NzlmOTQzMmQxYzFkMjM5YjkxNTNjNDM5NWVkNzlmOTFjMzJkNGFjY2Y3YTEiLCJpYXQiOjE3NzY1NjY1NjMuNzQ4NjQ4OSwibmJmIjoxNzc2NTY2NTYzLjc0ODY1MDEsImV4cCI6MjcyMzMzNzc2My43NDIxODg5LCJzdWIiOiIxNTYzMjYiLCJzY29wZXMiOltdfQ.rK-xf3VKfU89pnxZDOwOJD9Jfa_JMovWAq7d8SnUqutuHE51_VEYQPbs6aejfSy9IsTE2sSaPwCA62HKPTk-ybROBsGn8ARRpO3Sdub3HjPPioQlrUa6jOz_Ayhn_Ss-3PxEG0iPcN_G6mAGOFDdzjLyKzRehLU_ijetKjTmtNnMNgj5Um9z0gAPuovhCVLjObEkAlipzTM5SA4BDR1irhfhPmmsyJe59zEW02o6kT2vVqS-STJDriyxAzW6RuUd82McwtMRNgN8C4X8vXbAgPjx1XVlNtTTroRpR09a4U5VbFXU1ec30eV8vNZo0UgqusX-lTQBV_sSspkAFkxY1LpHt-rLTY9unlbcy6ilMMkApM_KcVU3p-j1qpoFwMiWFfYYrQCbL-vYsIpRoo42GQs3CcN9ZrvMAjAs95wAXurJzLYD2Q3_9cRax-mY11nL5SQoFHXhwppSPNno-U8HL9xo7tHl9D2WMzWF3Jb-ddyOiYDknofWPQXL82jLs3f4Ra7g7K4fIfnG53ZiSJy3BOjOFGBnGng3SY0b4zdVT9EWBbZO6sjhMunJhSlVlf9hPfE9NTJfvTjKUvoAIDdOKZxHnOCJcdlU_fmm6L72I9k_Igw4dihw7X_LVtlYdQ8j9acO3sk5umBof9huFs34bV2qFkfShX7sCwEgs_RH-qo",
+  eventId: 64025,    // 2026 Worlds HS
+  divisionId: 8,     // Research
+};
 
 const SCORING_PRESETS = ["4 3", "3 4", "7", "5 3", "3 5", "4 3 3"];
 let SCHEDULE = [];
@@ -1307,6 +1315,71 @@ function renderMatchDetail(matchNum) {
   if (history.replaceState) history.replaceState(null, "", `#match/${encodeURIComponent(matchNum)}`);
 }
 
+async function fetchScheduleFromApi() {
+  const url = `https://www.robotevents.com/api/v2/events/${RE_API.eventId}/divisions/${RE_API.divisionId}/matches`;
+  const headers = { "Authorization": `Bearer ${RE_API.key}`, "Accept": "application/json" };
+  const out = [];
+  let page = 1;
+  while (true) {
+    const r = await fetch(`${url}?per_page=250&page=${page}`, { headers });
+    if (!r.ok) throw new Error(`RE API HTTP ${r.status}`);
+    const data = await r.json();
+    for (const m of (data.data || [])) {
+      let alliances = m.alliances || [];
+      if (Array.isArray(alliances)) {
+        alliances = Object.fromEntries(alliances.map(a => [a.color, a]));
+      }
+      const teamsFrom = c => {
+        const tl = (alliances[c] || {}).teams || [];
+        return tl.map(t => (t.team && t.team.name) || "");
+      };
+      const r_ = teamsFrom("red"), b = teamsFrom("blue");
+      out.push({
+        "Match":  m.name || "",
+        "Red 1":  r_[0] || "",
+        "Red 2":  r_[1] || "",
+        "Blue 1": b[0]  || "",
+        "Blue 2": b[1]  || "",
+        "Scheduled": m.scheduled || "",
+        "Round": m.round,
+      });
+    }
+    const meta = data.meta || {};
+    if ((meta.current_page || 1) >= (meta.last_page || 1)) break;
+    page++;
+  }
+  return out;
+}
+
+async function refreshSchedule() {
+  const empty = document.getElementById("schedule-empty");
+  const content = document.getElementById("schedule-content");
+  const status = document.getElementById("schedule-status");
+  if (status) status.textContent = "fetching…";
+  try {
+    SCHEDULE = await fetchScheduleFromApi();
+  } catch (e) {
+    // Fallback: try CSV if present
+    try {
+      const rows = await loadCsv(SCHEDULE_CSV_URL);
+      SCHEDULE = rows.filter(r => r["Match"]);
+    } catch {
+      SCHEDULE = [];
+    }
+    if (status) status.textContent = "API failed, " + (SCHEDULE.length ? "using CSV fallback" : "no data");
+  }
+  if (!SCHEDULE.length) {
+    empty.style.display = "block";
+    content.style.display = "none";
+    if (status) status.textContent = "schedule not released yet — click refresh once it is";
+    return;
+  }
+  empty.style.display = "none";
+  content.style.display = "block";
+  if (status) status.textContent = `loaded ${SCHEDULE.length} matches`;
+  renderScheduleList(document.getElementById("schedule-search-input").value || "");
+}
+
 function initScheduleView() {
   // Tab switching
   document.getElementById("tab-teams").addEventListener("click", () => {
@@ -1316,6 +1389,8 @@ function initScheduleView() {
   document.getElementById("tab-schedule").addEventListener("click", () => {
     switchTab("schedule");
     if (history.replaceState) history.replaceState(null, "", "#schedule");
+    // Lazy load on first tab open
+    if (!SCHEDULE.length) refreshSchedule();
   });
 
   // Search input
@@ -1325,14 +1400,9 @@ function initScheduleView() {
     renderScheduleList(e.target.value);
   });
 
-  // Load schedule
-  loadCsv(SCHEDULE_CSV_URL).then(rows => {
-    SCHEDULE = rows.filter(r => r["Match"]);
-    if (!SCHEDULE.length) return;
-    document.getElementById("schedule-empty").style.display = "none";
-    document.getElementById("schedule-content").style.display = "block";
-    renderScheduleList("");
-  }).catch(() => { /* keep placeholder */ });
+  // Refresh button
+  const refreshBtn = document.getElementById("schedule-refresh");
+  if (refreshBtn) refreshBtn.addEventListener("click", () => refreshSchedule());
 }
 
 Promise.all([
@@ -1363,11 +1433,11 @@ Promise.all([
     // #schedule -> Schedule tab; #match/Q5 -> match detail; <team> -> team view; else default
     if (rawHash === "schedule") {
       switchTab("schedule");
+      refreshSchedule();
     } else if (rawHash.startsWith("match/")) {
       switchTab("schedule");
       const mn = rawHash.slice("match/".length);
-      // defer so schedule CSV can load
-      setTimeout(() => renderMatchDetail(mn), 500);
+      refreshSchedule().then(() => renderMatchDetail(mn));
     }
     const initial = DATA.find(d => d["Team Number"] === rawHash)
       ? rawHash

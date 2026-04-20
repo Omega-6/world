@@ -284,7 +284,7 @@
     .match-card { grid-template-columns: 60px 1fr; grid-template-rows: auto auto; }
     .match-card .blue { grid-column: 2; }
     .tabs button { padding: 10px 14px; flex: 1; text-align: center; }
-    canvas { max-height: 320px; }
+    canvas { max-height: 440px; min-height: 360px; }
     .table-wrap table { font-size: 12px; }
     .table-wrap th, .table-wrap td { padding: 5px 6px; }
   }
@@ -330,6 +330,10 @@
       <h3>Awards Won This Season — <span id="awards-count">0</span></h3>
       <ul id="awards-list" class="awards-list"></ul>
       <div id="awards-empty" class="awards-empty" style="display:none">No awards recorded this season.</div>
+    </div>
+    <div class="match-log-card" id="event-results-card" style="display:none">
+      <h3>Event Results (Season)</h3>
+      <ul id="event-results-list" class="match-log-list"></ul>
     </div>
     <div class="charts" style="margin-bottom: 16px;">
       <div class="chart-card">
@@ -493,6 +497,47 @@ function renderNotes(teamNum) {
   ta.dataset.team = teamNum;
   setNotesStatus("", t ? "—" : "");
   renderMatchLog(teamNum);
+  renderEventResults(teamNum);
+}
+
+const PLAYOFF_LABEL = {
+  "Qual": "Qualifiers only",
+  "R16": "Lost in Round of 16",
+  "QF": "Lost in Quarterfinals",
+  "SF": "Lost in Semifinals",
+  "F": "Lost in Finals (Finalist)",
+  "Champ": "Tournament Champion 🏆",
+};
+const PLAYOFF_COLOR = {
+  "Qual": "#64748b",
+  "R16": "#8b5cf6",
+  "QF": "#0ea5e9",
+  "SF": "#10b981",
+  "F": "#f59e0b",
+  "Champ": "#fbbf24",
+};
+
+function renderEventResults(teamNum) {
+  const card = document.getElementById("event-results-card");
+  const list = document.getElementById("event-results-list");
+  const rows = HISTORY
+    .filter(h => h["Team Number"] === teamNum)
+    .sort((a, b) => String(a["Event Date"]).localeCompare(String(b["Event Date"])));
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  list.innerHTML = rows.map(r => {
+    const d = r["Playoff Depth"] || "Qual";
+    const label = PLAYOFF_LABEL[d] || d;
+    const color = PLAYOFF_COLOR[d] || "#64748b";
+    const country = r["Event Country"] && r["Event Country"] !== "United States" ? ` • ${r["Event Country"]}` : "";
+    return `<li>
+      <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+        <strong>${shortEventName(r["Event Name"])}</strong>
+        <span style="color:${color}; font-weight:600; font-size:12px;">${label}</span>
+      </div>
+      <div class="res">${r["Event Date"]}${country} — Qual rank #${r["Rank"]}, ${r["Wins"]}-${r["Losses"]}-${r["Ties"]} (${r["Winrate %"]}%)</div>
+    </li>`;
+  }).join("");
 }
 
 function teamMatchEntries(teamNum) {
@@ -1065,6 +1110,12 @@ const COLUMN_ORDER_PRIORITY = [
   "Total Wins",
   "Total Losses",
   "Total Ties",
+  "Qual Wins",
+  "Qual Losses",
+  "Qual Ties",
+  "Playoff Wins",
+  "Playoff Losses",
+  "Playoff Ties",
   "Combined Skills",
   "Driver Skills",
   "Programming Skills",

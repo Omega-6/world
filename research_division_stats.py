@@ -102,24 +102,53 @@ def batch_resolve_teams(team_nums):
 ROUND_LABEL = {3: "R16", 4: "QF", 5: "SF", 6: "F"}
 
 
-def fetch_playoff_depth(team_id):
-    """Return {event_id: deepest_round_label} using the matches endpoint.
-    Round labels: 'R16', 'QF', 'SF', 'F'. (Qual-only events are omitted.)
-    'Champ' is applied later by crosschecking awards."""
+def fetch_match_details(team_id):
+    """Return (depth_by_event, playoff_wlt) from the matches endpoint.
+
+    depth_by_event: {event_id: deepest_round_label}
+    playoff_wlt:    {"wins": int, "losses": int, "ties": int}
+    """
     data = re_get(f"https://www.robotevents.com/api/v2/teams/{team_id}/matches?season%5B%5D={SEASON_ID}&per_page=250")
     if not data:
-        return {}
-    best = {}  # event_id -> max round (int)
+        return {}, {"wins": 0, "losses": 0, "ties": 0}
+    best = {}  # event_id -> max round
+    pw = pl = pt = 0
     for m in data.get("data", []):
         rnd = m.get("round")
-        if not rnd or rnd < 3:  # skip practice(1) and qualification(2)
+        if not rnd or rnd < 3:
             continue
         eid = (m.get("event") or {}).get("id")
         if eid is None:
             continue
         if rnd > best.get(eid, 0):
             best[eid] = rnd
-    return {eid: ROUND_LABEL[r] for eid, r in best.items() if r in ROUND_LABEL}
+
+        alliances = m.get("alliances") or []
+        if isinstance(alliances, list):
+            alliances = {a.get("color"): a for a in alliances if isinstance(a, dict)}
+        red = alliances.get("red") or {}
+        blue = alliances.get("blue") or {}
+        rs = red.get("score", 0) or 0
+        bs = blue.get("score", 0) or 0
+        if rs == 0 and bs == 0:
+            continue  # unplayed
+        def has(alliance):
+            for t in (alliance.get("teams") or []):
+                tid = (t.get("team") or {}).get("id")
+                if tid == team_id:
+                    return True
+            return False
+        if has(red):
+            my, op = rs, bs
+        elif has(blue):
+            my, op = bs, rs
+        else:
+            continue
+        if my > op:   pw += 1
+        elif my < op: pl += 1
+        else:         pt += 1
+    depth = {eid: ROUND_LABEL[r] for eid, r in best.items() if r in ROUND_LABEL}
+    return depth, {"wins": pw, "losses": pl, "ties": pt}
 
 
 def fetch_rankings(team_id, event_details=None):
@@ -152,16 +181,14 @@ def fetch_rankings(team_id, event_details=None):
                 "winrate_pct": round((w / total_m) * 100, 1) if total_m else 0.0,
             })
     avg_rank = round(rank_sum / events, 2) if events else 0.0
-    total = wins + losses + ties
-    winrate = round((wins / total) * 100, 1) if total else 0.0
+    qual_total = wins + losses + ties
     return {
         "avg_qual_rank": avg_rank,
         "events_attended": events,
-        "total_matches": total,
-        "total_wins": wins,
-        "total_losses": losses,
-        "total_ties": ties,
-        "winrate_pct": winrate,
+        "qual_wins": wins,
+        "qual_losses": losses,
+        "qual_ties": ties,
+        "qual_matches": qual_total,
     }, history
 
 
@@ -280,7 +307,7 @@ def process(team_num, tid, tname, event_details):
         return row, history_rows, award_rows
 
     ranks, history = fetch_rankings(tid, event_details)
-    depth_by_event = fetch_playoff_depth(tid)
+    depth_by_event, playoff_wlt = fetch_match_details(tid)
     awards, award_details = fetch_awards_detailed(tid, event_details)
     # Build event_id -> depth override from awards:
     # "Tournament Champions" -> "Champ", "Finalists" -> "F" (already covered by matches but safe).
@@ -303,15 +330,27 @@ def process(team_num, tid, tname, event_details):
     driver, prog = fetch_skills(tid)
     ts_rank, ts_score = fetch_trueskill(team_num)
 
+    qw = ranks["qual_wins"]; ql = ranks["qual_losses"]; qt = ranks["qual_ties"]
+    pw = playoff_wlt["wins"]; pl = playoff_wlt["losses"]; pt = playoff_wlt["ties"]
+    tot_w = qw + pw; tot_l = ql + pl; tot_t = qt + pt
+    tot_m = tot_w + tot_l + tot_t
+    winrate = round((tot_w / tot_m) * 100, 1) if tot_m else 0.0
+
     row.update({
         "Avg Qual Rank": ranks["avg_qual_rank"],
         "Events Attended": ranks["events_attended"],
         "Total Awards": awards,
-        "Total Matches": ranks["total_matches"],
-        "Total Wins": ranks["total_wins"],
-        "Total Losses": ranks["total_losses"],
-        "Total Ties": ranks["total_ties"],
-        "Winrate %": ranks["winrate_pct"],
+        "Total Matches": tot_m,
+        "Total Wins": tot_w,
+        "Total Losses": tot_l,
+        "Total Ties": tot_t,
+        "Winrate %": winrate,
+        "Qual Wins": qw,
+        "Qual Losses": ql,
+        "Qual Ties": qt,
+        "Playoff Wins": pw,
+        "Playoff Losses": pl,
+        "Playoff Ties": pt,
         "Combined Skills": driver + prog,
         "Driver Skills": driver,
         "Programming Skills": prog,

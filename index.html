@@ -186,6 +186,108 @@
   .notes-status { font-size: 11px; color: var(--muted); font-weight: 400; }
   .notes-status.saved { color: #22c55e; }
   .notes-status.err { color: var(--red); }
+
+  /* ---- tabs ---- */
+  .tabs { display: flex; gap: 4px; margin-top: 12px; border-bottom: 1px solid var(--panel2); }
+  .tabs button {
+    background: transparent; color: var(--muted); border: none;
+    padding: 10px 18px; font-size: 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0;
+  }
+  .tabs button:hover { color: var(--text); background: rgba(59,130,246,0.06); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ---- schedule view ---- */
+  .schedule-search { margin: 8px 0 16px; }
+  .schedule-search input {
+    width: 100%; max-width: 480px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--panel2); border-radius: 6px;
+    padding: 10px 12px; font-size: 14px;
+  }
+  .schedule-search input:focus { outline: none; border-color: var(--accent); }
+  .match-list { display: grid; gap: 8px; }
+  .match-card {
+    background: var(--panel); border: 1px solid var(--panel2);
+    border-radius: 8px; padding: 12px 14px; cursor: pointer;
+    display: grid; grid-template-columns: 70px 1fr 1fr; gap: 12px; align-items: center;
+  }
+  .match-card:hover { border-color: var(--accent); }
+  .match-card .mnum { font-weight: 600; font-size: 16px; }
+  .match-card .red { color: #fca5a5; font-size: 13px; }
+  .match-card .blue { color: #93c5fd; font-size: 13px; }
+
+  .match-detail { background: var(--panel); border: 1px solid var(--panel2); border-radius: 8px; padding: 16px 20px; margin-top: 12px; }
+  .match-back {
+    background: transparent; color: var(--muted); border: 1px solid var(--panel2);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; margin-bottom: 12px;
+  }
+  .match-back:hover { color: var(--text); border-color: var(--accent); }
+  .alliance-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;
+  }
+  .team-card {
+    background: #0f172a; border: 1px solid var(--panel2);
+    border-radius: 8px; padding: 12px;
+  }
+  .team-card.red { border-left: 3px solid #ef4444; }
+  .team-card.blue { border-left: 3px solid #3b82f6; }
+  .team-card .tc-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .team-card .tc-num { font-weight: 600; color: #60a5fa; cursor: pointer; font-size: 15px; }
+  .team-card .tc-num:hover { text-decoration: underline; }
+  .team-card .tc-name { color: var(--muted); font-size: 12px; }
+  .checks { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+  .checks label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; }
+  .checks input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer;
+  }
+  .team-card select, .team-card input[type="text"] {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--panel2); border-radius: 6px;
+    padding: 8px 10px; font-size: 13px;
+  }
+  .team-card select:focus, .team-card input:focus { outline: none; border-color: var(--accent); }
+  .team-card .scoring-row { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .result-notes { margin-bottom: 12px; }
+  .result-notes textarea {
+    width: 100%; min-height: 70px;
+    background: #0f172a; color: var(--text);
+    border: 1px solid var(--panel2); border-radius: 6px;
+    padding: 10px 12px; font-family: inherit; font-size: 13px; resize: vertical;
+  }
+  .result-notes textarea:focus { outline: none; border-color: var(--accent); }
+  .match-log-card {
+    background: var(--panel); border: 1px solid var(--panel2);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+  }
+  .match-log-card h3 { margin: 0 0 10px; font-size: 15px; color: var(--muted); font-weight: 500; }
+  .match-log-list { list-style: none; padding: 0; margin: 0; font-size: 13px; display: grid; gap: 6px; }
+  .match-log-list li { padding: 8px 10px; background: #0f172a; border-radius: 6px; border: 1px solid var(--panel2); }
+  .match-log-list .mn { color: #60a5fa; cursor: pointer; font-weight: 600; }
+  .match-log-list .mn:hover { text-decoration: underline; }
+  .match-log-list .tags { color: var(--text); margin-left: 6px; }
+  .match-log-list .res { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  /* ---- mobile ---- */
+  @media (max-width: 720px) {
+    header { padding: 16px 16px 12px; }
+    header h1 { font-size: 20px; }
+    main { padding: 14px 14px; }
+    .picker { flex-direction: column; align-items: stretch; gap: 6px; }
+    .combo { min-width: 0; width: 100%; }
+    .metrics { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+    .metric .value { font-size: 18px; }
+    .awards-list { grid-template-columns: 1fr; }
+    .alliance-grid { grid-template-columns: 1fr; }
+    .match-card { grid-template-columns: 60px 1fr; grid-template-rows: auto auto; }
+    .match-card .blue { grid-column: 2; }
+    .tabs button { padding: 10px 14px; flex: 1; text-align: center; }
+    canvas { max-height: 320px; }
+    .table-wrap table { font-size: 12px; }
+    .table-wrap th, .table-wrap td { padding: 5px 6px; }
+  }
 </style>
 </head>
 <body>
@@ -193,7 +295,15 @@
 <header>
   <h1>2026 Worlds — Research Division</h1>
   <p>Event: RE-V5RC-26-4025 • Season: V5RC Push Back (2025–2026) • <span id="team-count">—</span> teams</p>
-  <div class="picker">
+  <div class="tabs">
+    <button id="tab-teams" class="active">Teams</button>
+    <button id="tab-schedule">Schedule</button>
+  </div>
+</header>
+
+<main>
+<div id="panel-teams" class="tab-panel active">
+  <div class="picker" style="margin: 16px 0 8px;">
     <label for="team-picker">Team:</label>
     <div class="combo">
       <input id="team-picker" type="search" autocomplete="off"
@@ -202,9 +312,6 @@
       <div id="team-picker-list" class="combo-list" role="listbox"></div>
     </div>
   </div>
-</header>
-
-<main>
   <section id="team-view" style="display:none">
     <h2 id="team-header"></h2>
     <div class="metrics" id="metrics"></div>
@@ -214,6 +321,10 @@
         <span id="notes-status" class="notes-status">—</span>
       </h3>
       <textarea id="notes-textarea" placeholder="Notes about this team (saved automatically)…"></textarea>
+    </div>
+    <div class="match-log-card" id="match-log-card" style="display:none">
+      <h3>Match Log (from Schedule view)</h3>
+      <ul id="match-log-list" class="match-log-list"></ul>
     </div>
     <div class="awards-card">
       <h3>Awards Won This Season — <span id="awards-count">0</span></h3>
@@ -244,6 +355,23 @@
     <summary>Full Division Table (click column to sort)</summary>
     <div class="table-wrap"><table id="full-table"></table></div>
   </details>
+</div>
+
+<div id="panel-schedule" class="tab-panel">
+  <div class="schedule-search">
+    <input id="schedule-search-input" type="search" autocomplete="off"
+           placeholder="Search match (e.g. Q5) or team (e.g. 81Z)…" spellcheck="false" />
+  </div>
+  <div id="schedule-empty" style="color:var(--muted); padding: 24px 0; font-size:14px;">
+    Schedule not yet released. Place <code>Worlds2026_Research_Division_Schedule.csv</code>
+    next to <code>index.html</code> (columns: <em>Match, Red 1, Red 2, Blue 1, Blue 2</em>)
+    and this tab will come alive.
+  </div>
+  <div id="schedule-content" style="display:none">
+    <div id="match-list" class="match-list"></div>
+    <div id="match-detail" style="display:none"></div>
+  </div>
+</div>
 
   <div id="error" class="error" style="display:none"></div>
 </main>
@@ -252,6 +380,10 @@
 const CSV_URL = "Worlds2026_Research_Division_Stats.csv";
 const HISTORY_CSV_URL = "Worlds2026_Research_Division_History.csv";
 const AWARDS_CSV_URL = "Worlds2026_Research_Division_Awards.csv";
+const SCHEDULE_CSV_URL = "Worlds2026_Research_Division_Schedule.csv";
+
+const SCORING_PRESETS = ["4 3", "3 4", "7", "5 3", "3 5", "4 3 3"];
+let SCHEDULE = [];
 
 // ---- NOTES STORAGE ----
 // Notes always saved to localStorage. If the two JSONBin fields below are
@@ -267,10 +399,27 @@ const JSONBIN_CONFIG = {
   masterKey: "$2a$10$3/bQ/XE/VmacPgRqpCHcje/FCHvQQW4151XC1Y4kjMlptiYfRmdge",
 };
 const NOTES_LOCALSTORAGE_KEY = "rd_team_notes_v1";
-let NOTES = {};
+let STORE = { team_notes: {}, match_notes: {} };
 let notesSaveTimer = null;
 
-async function loadNotesFromRemote() {
+function migrateStore(raw) {
+  if (!raw || typeof raw !== "object") return { team_notes: {}, match_notes: {} };
+  if (raw.team_notes || raw.match_notes) {
+    return {
+      team_notes: raw.team_notes || {},
+      match_notes: raw.match_notes || {},
+    };
+  }
+  // Old flat format: {teamNum: "text", ...}
+  const out = { team_notes: {}, match_notes: {} };
+  for (const k of Object.keys(raw)) {
+    if (k.startsWith("_")) continue;
+    if (typeof raw[k] === "string") out.team_notes[k] = raw[k];
+  }
+  return out;
+}
+
+async function loadStoreFromRemote() {
   if (!JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.masterKey) return null;
   try {
     const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
@@ -278,20 +427,20 @@ async function loadNotesFromRemote() {
     });
     if (!r.ok) return null;
     const d = await r.json();
-    return d.record || {};
+    return migrateStore(d.record || {});
   } catch (e) {
     console.warn("Notes remote fetch failed:", e);
     return null;
   }
 }
 
-async function saveNotesToRemote() {
+async function saveStoreToRemote() {
   if (!JSONBIN_CONFIG.binId || !JSONBIN_CONFIG.masterKey) return "local";
   try {
     const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_CONFIG.masterKey },
-      body: JSON.stringify(NOTES),
+      body: JSON.stringify(STORE),
     });
     return r.ok ? "synced" : "err";
   } catch (e) {
@@ -301,13 +450,13 @@ async function saveNotesToRemote() {
 }
 
 async function initNotes() {
-  const remote = await loadNotesFromRemote();
+  const remote = await loadStoreFromRemote();
   if (remote) {
-    NOTES = remote;
-    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(NOTES));
+    STORE = remote;
+    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(STORE));
   } else {
-    try { NOTES = JSON.parse(localStorage.getItem(NOTES_LOCALSTORAGE_KEY) || "{}"); }
-    catch { NOTES = {}; }
+    try { STORE = migrateStore(JSON.parse(localStorage.getItem(NOTES_LOCALSTORAGE_KEY) || "{}")); }
+    catch { STORE = { team_notes: {}, match_notes: {} }; }
   }
 }
 
@@ -321,8 +470,8 @@ function scheduleNotesSave() {
   clearTimeout(notesSaveTimer);
   setNotesStatus("", "saving…");
   notesSaveTimer = setTimeout(async () => {
-    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(NOTES));
-    const result = await saveNotesToRemote();
+    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(STORE));
+    const result = await saveStoreToRemote();
     if (result === "synced") setNotesStatus("saved", "synced ✓");
     else if (result === "local") setNotesStatus("saved", "saved locally ✓");
     else setNotesStatus("err", "saved locally (sync failed)");
@@ -331,9 +480,52 @@ function scheduleNotesSave() {
 
 function renderNotes(teamNum) {
   const ta = document.getElementById("notes-textarea");
-  ta.value = NOTES[teamNum] || "";
+  const t = STORE.team_notes[teamNum] || "";
+  ta.value = t;
   ta.dataset.team = teamNum;
-  setNotesStatus("", NOTES[teamNum] ? "—" : "");
+  setNotesStatus("", t ? "—" : "");
+  renderMatchLog(teamNum);
+}
+
+function teamMatchEntries(teamNum) {
+  // Returns list of {match, result_notes, team_data} that this team appears in.
+  const out = [];
+  for (const [m, info] of Object.entries(STORE.match_notes || {})) {
+    if (info.teams && info.teams[teamNum]) {
+      out.push({ match: m, result_notes: info.result_notes || "", team_data: info.teams[teamNum] });
+    }
+  }
+  // Sort by match number natural order (Q1, Q2, ..., Q10, ...)
+  out.sort((a, b) => naturalCmp(a.match, b.match));
+  return out;
+}
+
+function renderMatchLog(teamNum) {
+  const card = document.getElementById("match-log-card");
+  const list = document.getElementById("match-log-list");
+  const entries = teamMatchEntries(teamNum);
+  if (!entries.length) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  list.innerHTML = entries.map(e => {
+    const td = e.team_data || {};
+    const tags = [];
+    if (td.awp) tags.push("AWP");
+    if (td.right) tags.push("Right");
+    if (td.left) tags.push("Left");
+    if (td.scoring) tags.push(td.scoring);
+    const res = e.result_notes ? `<div class="res">"${e.result_notes}"</div>` : "";
+    return `<li>
+      <span class="mn" data-match="${e.match}">${e.match}</span>
+      <span class="tags">${tags.length ? tags.join(" • ") : "<em style='color:var(--muted)'>no flags</em>"}</span>
+      ${res}
+    </li>`;
+  }).join("");
+  list.querySelectorAll(".mn").forEach(el => {
+    el.addEventListener("click", () => {
+      switchTab("schedule");
+      renderMatchDetail(el.dataset.match);
+    });
+  });
 }
 const METRIC_ORDER = [
   ["Division Rank", "Division Rank"],
@@ -937,6 +1129,212 @@ function loadCsv(url) {
   });
 }
 
+// ---------- SCHEDULE / MATCH VIEW ----------
+function switchTab(which) {
+  const isSched = which === "schedule";
+  document.getElementById("tab-teams").classList.toggle("active", !isSched);
+  document.getElementById("tab-schedule").classList.toggle("active", isSched);
+  document.getElementById("panel-teams").classList.toggle("active", !isSched);
+  document.getElementById("panel-schedule").classList.toggle("active", isSched);
+}
+
+function renderScheduleList(filter) {
+  const q = (filter || "").trim().toLowerCase();
+  const results = SCHEDULE.filter(m => {
+    if (!q) return true;
+    if (String(m["Match"]).toLowerCase().includes(q)) return true;
+    for (const k of ["Red 1", "Red 2", "Blue 1", "Blue 2"]) {
+      if (String(m[k] || "").toLowerCase().includes(q)) return true;
+    }
+    return false;
+  });
+  const list = document.getElementById("match-list");
+  if (!results.length) {
+    list.innerHTML = `<div style="color:var(--muted); padding:16px; font-size:13px;">No matches found.</div>`;
+    return;
+  }
+  list.innerHTML = results.slice(0, 200).map(m => `
+    <div class="match-card" data-match="${m["Match"]}">
+      <div class="mnum">${m["Match"]}</div>
+      <div class="red">🟥 ${m["Red 1"] || "?"} · ${m["Red 2"] || "?"}</div>
+      <div class="blue">🟦 ${m["Blue 1"] || "?"} · ${m["Blue 2"] || "?"}</div>
+    </div>
+  `).join("");
+  list.querySelectorAll(".match-card").forEach(el => {
+    el.addEventListener("click", () => renderMatchDetail(el.dataset.match));
+  });
+}
+
+function saveMatchData() {
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(async () => {
+    localStorage.setItem(NOTES_LOCALSTORAGE_KEY, JSON.stringify(STORE));
+    const result = await saveStoreToRemote();
+    const badge = document.getElementById("match-save-status");
+    if (!badge) return;
+    if (result === "synced") { badge.className = "notes-status saved"; badge.textContent = "synced ✓"; }
+    else if (result === "local") { badge.className = "notes-status saved"; badge.textContent = "saved locally ✓"; }
+    else { badge.className = "notes-status err"; badge.textContent = "sync failed"; }
+  }, 500);
+}
+
+function getMatchRecord(matchNum) {
+  if (!STORE.match_notes[matchNum]) STORE.match_notes[matchNum] = { result_notes: "", teams: {} };
+  const r = STORE.match_notes[matchNum];
+  if (!r.teams) r.teams = {};
+  return r;
+}
+
+function teamDisplayName(teamNum) {
+  const d = DATA.find(x => x["Team Number"] === teamNum);
+  return d ? d["Team Name"] : "";
+}
+
+function buildTeamCard(matchNum, teamNum, color) {
+  if (!teamNum) return "";
+  const rec = getMatchRecord(matchNum);
+  const td = rec.teams[teamNum] || { awp: false, right: false, left: false, scoring: "" };
+  const isPreset = td.scoring === "" || SCORING_PRESETS.includes(td.scoring);
+  const selectVal = isPreset ? td.scoring : "other";
+  const otherVal = isPreset ? "" : (td.scoring || "");
+
+  const name = teamDisplayName(teamNum);
+  const id = `${matchNum}-${teamNum}`.replace(/\W/g, "_");
+  return `
+    <div class="team-card ${color}" data-team="${teamNum}">
+      <div class="tc-head">
+        <span class="tc-num" data-goto="${teamNum}">${teamNum}</span>
+        <span class="tc-name">${name}</span>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" data-f="awp" ${td.awp ? "checked" : ""}>AWP</label>
+        <label><input type="checkbox" data-f="right" ${td.right ? "checked" : ""}>Right</label>
+        <label><input type="checkbox" data-f="left" ${td.left ? "checked" : ""}>Left</label>
+      </div>
+      <div class="scoring-row">
+        <select data-f="scoring-preset" id="sel-${id}">
+          <option value="" ${selectVal==="" ? "selected":""}>— scoring —</option>
+          ${SCORING_PRESETS.map(p => `<option value="${p}" ${selectVal===p?"selected":""}>${p}</option>`).join("")}
+          <option value="other" ${selectVal==="other"?"selected":""}>Other…</option>
+        </select>
+        <input type="text" data-f="scoring-other" placeholder="custom scoring"
+               value="${otherVal.replace(/"/g,"&quot;")}"
+               style="display:${selectVal==="other"?"block":"none"}">
+      </div>
+    </div>`;
+}
+
+function renderMatchDetail(matchNum) {
+  const m = SCHEDULE.find(x => String(x["Match"]) === String(matchNum));
+  const listEl = document.getElementById("match-list");
+  const detailEl = document.getElementById("match-detail");
+  if (!m) {
+    detailEl.style.display = "none";
+    listEl.style.display = "block";
+    return;
+  }
+  listEl.style.display = "none";
+  detailEl.style.display = "block";
+  const rec = getMatchRecord(matchNum);
+  detailEl.innerHTML = `
+    <div class="match-detail">
+      <button class="match-back">← Back to list</button>
+      <h2 style="margin:0 0 4px;">${m["Match"]}</h2>
+      <div style="color:var(--muted); font-size:13px; margin-bottom:12px;">
+        🟥 ${m["Red 1"]||"?"} · ${m["Red 2"]||"?"} &nbsp;&nbsp; vs &nbsp;&nbsp; 🟦 ${m["Blue 1"]||"?"} · ${m["Blue 2"]||"?"}
+        &nbsp;&nbsp; <span id="match-save-status" class="notes-status">—</span>
+      </div>
+      <div class="result-notes">
+        <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:4px;">Match result notes</label>
+        <textarea id="result-notes-ta" placeholder="Final score, key moments, partner performance…">${(rec.result_notes||"").replace(/</g,"&lt;")}</textarea>
+      </div>
+      <div class="alliance-grid">
+        ${buildTeamCard(matchNum, m["Red 1"], "red")}
+        ${buildTeamCard(matchNum, m["Red 2"], "red")}
+        ${buildTeamCard(matchNum, m["Blue 1"], "blue")}
+        ${buildTeamCard(matchNum, m["Blue 2"], "blue")}
+      </div>
+    </div>`;
+
+  detailEl.querySelector(".match-back").addEventListener("click", () => {
+    detailEl.style.display = "none";
+    listEl.style.display = "block";
+    if (history.replaceState) history.replaceState(null, "", "#schedule");
+  });
+
+  document.getElementById("result-notes-ta").addEventListener("input", (e) => {
+    rec.result_notes = e.target.value;
+    saveMatchData();
+  });
+
+  detailEl.querySelectorAll(".team-card").forEach(card => {
+    const teamNum = card.dataset.team;
+    if (!rec.teams[teamNum]) rec.teams[teamNum] = { awp: false, right: false, left: false, scoring: "" };
+    const td = rec.teams[teamNum];
+
+    card.querySelector('.tc-num').addEventListener("click", () => {
+      switchTab("teams");
+      setPickerValue(teamNum);
+      selectTeam(teamNum);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    card.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener("change", () => {
+        td[cb.dataset.f] = cb.checked;
+        saveMatchData();
+      });
+    });
+    const sel = card.querySelector('select[data-f="scoring-preset"]');
+    const other = card.querySelector('input[data-f="scoring-other"]');
+    sel.addEventListener("change", () => {
+      if (sel.value === "other") {
+        other.style.display = "block";
+        other.focus();
+        td.scoring = other.value;
+      } else {
+        other.style.display = "none";
+        td.scoring = sel.value;
+      }
+      saveMatchData();
+    });
+    other.addEventListener("input", () => {
+      td.scoring = other.value;
+      saveMatchData();
+    });
+  });
+
+  if (history.replaceState) history.replaceState(null, "", `#match/${encodeURIComponent(matchNum)}`);
+}
+
+function initScheduleView() {
+  // Tab switching
+  document.getElementById("tab-teams").addEventListener("click", () => {
+    switchTab("teams");
+    if (history.replaceState) history.replaceState(null, "", "#");
+  });
+  document.getElementById("tab-schedule").addEventListener("click", () => {
+    switchTab("schedule");
+    if (history.replaceState) history.replaceState(null, "", "#schedule");
+  });
+
+  // Search input
+  document.getElementById("schedule-search-input").addEventListener("input", (e) => {
+    document.getElementById("match-detail").style.display = "none";
+    document.getElementById("match-list").style.display = "grid";
+    renderScheduleList(e.target.value);
+  });
+
+  // Load schedule
+  loadCsv(SCHEDULE_CSV_URL).then(rows => {
+    SCHEDULE = rows.filter(r => r["Match"]);
+    if (!SCHEDULE.length) return;
+    document.getElementById("schedule-empty").style.display = "none";
+    document.getElementById("schedule-content").style.display = "block";
+    renderScheduleList("");
+  }).catch(() => { /* keep placeholder */ });
+}
+
 Promise.all([
   loadCsv(CSV_URL),
   loadCsv(HISTORY_CSV_URL).catch(() => []),
@@ -955,13 +1353,24 @@ Promise.all([
     document.getElementById("notes-textarea").addEventListener("input", (e) => {
       const num = e.target.dataset.team;
       if (!num) return;
-      NOTES[num] = e.target.value;
+      STORE.team_notes[num] = e.target.value;
       scheduleNotesSave();
     });
 
-    const hash = decodeURIComponent(location.hash.replace(/^#/, ""));
-    const initial = DATA.find(d => d["Team Number"] === hash)
-      ? hash
+    initScheduleView();
+
+    const rawHash = decodeURIComponent(location.hash.replace(/^#/, ""));
+    // #schedule -> Schedule tab; #match/Q5 -> match detail; <team> -> team view; else default
+    if (rawHash === "schedule") {
+      switchTab("schedule");
+    } else if (rawHash.startsWith("match/")) {
+      switchTab("schedule");
+      const mn = rawHash.slice("match/".length);
+      // defer so schedule CSV can load
+      setTimeout(() => renderMatchDetail(mn), 500);
+    }
+    const initial = DATA.find(d => d["Team Number"] === rawHash)
+      ? rawHash
       : DATA.slice().sort((a, b) => naturalCmp(a["Team Number"], b["Team Number"]))[0]["Team Number"];
     setPickerValue(initial);
     selectTeam(initial);
